@@ -8,6 +8,7 @@ from core.app.entities.app_invoke_entities import ModelConfigWithCredentialsEnti
 from core.memory.token_buffer_memory import TokenBufferMemory
 from core.model_runtime.entities.message_entities import (
     PromptMessage,
+    PromptMessageContent,
     SystemPromptMessage,
     TextPromptMessageContent,
     UserPromptMessage,
@@ -18,7 +19,7 @@ from core.prompt.utils.prompt_template_parser import PromptTemplateParser
 from models.model import AppMode
 
 if TYPE_CHECKING:
-    from core.file.file_obj import FileVar
+    from core.file.file_obj import File
 
 
 class ModelMode(enum.Enum):
@@ -53,7 +54,7 @@ class SimplePromptTransform(PromptTransform):
         prompt_template_entity: PromptTemplateEntity,
         inputs: dict,
         query: str,
-        files: list["FileVar"],
+        files: list["File"],
         context: Optional[str],
         memory: Optional[TokenBufferMemory],
         model_config: ModelConfigWithCredentialsEntity,
@@ -169,7 +170,7 @@ class SimplePromptTransform(PromptTransform):
         inputs: dict,
         query: str,
         context: Optional[str],
-        files: list["FileVar"],
+        files: list["File"],
         memory: Optional[TokenBufferMemory],
         model_config: ModelConfigWithCredentialsEntity,
     ) -> tuple[list[PromptMessage], Optional[list[str]]]:
@@ -214,7 +215,7 @@ class SimplePromptTransform(PromptTransform):
         inputs: dict,
         query: str,
         context: Optional[str],
-        files: list["FileVar"],
+        files: list["File"],
         memory: Optional[TokenBufferMemory],
         model_config: ModelConfigWithCredentialsEntity,
     ) -> tuple[list[PromptMessage], Optional[list[str]]]:
@@ -261,9 +262,10 @@ class SimplePromptTransform(PromptTransform):
 
         return [self.get_last_user_message(prompt, files)], stops
 
-    def get_last_user_message(self, prompt: str, files: list["FileVar"]) -> UserPromptMessage:
+    def get_last_user_message(self, prompt: str, files: list["File"]) -> UserPromptMessage:
         if files:
-            prompt_message_contents = [TextPromptMessageContent(data=prompt)]
+            prompt_message_contents: list[PromptMessageContent] = []
+            prompt_message_contents.append(TextPromptMessageContent(data=prompt))
             for file in files:
                 prompt_message_contents.append(file.prompt_message_content)
 

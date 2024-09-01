@@ -1,20 +1,22 @@
+import re
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from typing import Any, Union
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 from typing_extensions import deprecated
 
-from core.app.segments import Segment, Variable, factory
-from core.file.file_obj import FileVar
+from core.file import File
+from core.variables import Segment, SegmentGroup, Variable
 from core.workflow.enums import SystemVariableKey
+from factories import variable_factory
 
-VariableValue = Union[str, int, float, dict, list, FileVar]
+from ..constants import CONVERSATION_VARIABLE_NODE_ID, ENVIRONMENT_VARIABLE_NODE_ID, SYSTEM_VARIABLE_NODE_ID
+
+VariableValue = Union[str, int, float, dict, list, File]
 
 
-SYSTEM_VARIABLE_NODE_ID = "sys"
-ENVIRONMENT_VARIABLE_NODE_ID = "env"
-CONVERSATION_VARIABLE_NODE_ID = "conversation"
+VARIABLE_PATTERN = re.compile(r"\{\{#([a-zA-Z0-9_]{1,50}(?:\.[a-zA-Z_][a-zA-Z0-9_]{0,29}){1,10})#\}\}")
 
 
 class VariablePool(BaseModel):
@@ -39,13 +41,8 @@ class VariablePool(BaseModel):
 
     conversation_variables: Sequence[Variable] | None = None
 
-    @model_validator(mode="after")
-    def val_model_after(self):
-        """
-        Append system variables
-        :return:
-        """
-        # Add system variables to the variable pool
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         for key, value in self.system_variables.items():
             self.add((SYSTEM_VARIABLE_NODE_ID, key.value), value)
 
@@ -57,11 +54,12 @@ class VariablePool(BaseModel):
         for var in self.conversation_variables or []:
             self.add((CONVERSATION_VARIABLE_NODE_ID, var.name), var)
 
-        return self
-
     def add(self, selector: Sequence[str], value: Any, /) -> None:
         """
         Adds a variable to the variable pool.
+
+        NOTE: You should not add a non-Segment value to the variable pool
+        even if it is allowed now.
 
         Args:
             selector (Sequence[str]): The selector for the variable.
@@ -82,7 +80,7 @@ class VariablePool(BaseModel):
         if isinstance(value, Segment):
             v = value
         else:
-            v = factory.build_segment(value)
+            v = variable_factory.build_segment(value)
 
         hash_key = hash(tuple(selector[1:]))
         self.variable_dictionary[selector[0]][hash_key] = v
@@ -145,14 +143,12 @@ class VariablePool(BaseModel):
         hash_key = hash(tuple(selector[1:]))
         self.variable_dictionary[selector[0]].pop(hash_key, None)
 
-    def remove_node(self, node_id: str, /):
-        """
-        Remove all variables associated with a given node id.
-
-        Args:
-            node_id (str): The node id to remove.
-
-        Returns:
-            None
-        """
-        self.variable_dictionary.pop(node_id, None)
+    def convert_template(self, template: str, /):
+        parts = re.split(VARIABLE_PATTERN, template)
+        segments = []
+        for part in filter(lambda x: x, parts):
+            if "." in part and (value := self.get(part.split("."))):
+                segments.append(value)
+            else:
+                segments.append(variable_factory.build_segment(part))
+        return SegmentGroup(value=segments)

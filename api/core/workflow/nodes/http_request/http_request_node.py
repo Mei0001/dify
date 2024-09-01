@@ -5,16 +5,16 @@ from os import path
 from typing import Any, cast
 
 from configs import dify_config
-from core.app.segments import parser
-from core.file.file_obj import FileTransferMethod, FileType, FileVar
+from core.file import File, FileTransferMethod, FileType
 from core.tools.tool_file_manager import ToolFileManager
-from core.workflow.entities.node_entities import NodeRunResult, NodeType
+from core.workflow.entities.node_entities import NodeRunResult
 from core.workflow.nodes.base_node import BaseNode
 from core.workflow.nodes.http_request.entities import (
     HttpRequestNodeData,
     HttpRequestNodeTimeout,
 )
 from core.workflow.nodes.http_request.http_executor import HttpExecutor, HttpExecutorResponse
+from enums import NodeType
 from models.workflow import WorkflowNodeExecutionStatus
 
 HTTP_REQUEST_DEFAULT_TIMEOUT = HttpRequestNodeTimeout(
@@ -49,10 +49,9 @@ class HttpRequestNode(BaseNode):
 
     def _run(self) -> NodeRunResult:
         node_data: HttpRequestNodeData = cast(HttpRequestNodeData, self.node_data)
-        # TODO: Switch to use segment directly
         if node_data.authorization.config and node_data.authorization.config.api_key:
-            node_data.authorization.config.api_key = parser.convert_template(
-                template=node_data.authorization.config.api_key, variable_pool=self.graph_runtime_state.variable_pool
+            node_data.authorization.config.api_key = self.graph_runtime_state.variable_pool.convert_template(
+                node_data.authorization.config.api_key
             ).text
 
         # init http executor
@@ -129,7 +128,7 @@ class HttpRequestNode(BaseNode):
             logging.exception(f"Failed to extract variable selector to variable mapping: {e}")
             return {}
 
-    def extract_files(self, url: str, response: HttpExecutorResponse) -> list[FileVar]:
+    def extract_files(self, url: str, response: HttpExecutorResponse) -> list[File]:
         """
         Extract files from response
         """
@@ -151,7 +150,7 @@ class HttpRequestNode(BaseNode):
             )
 
             files.append(
-                FileVar(
+                File(
                     tenant_id=self.tenant_id,
                     type=FileType.IMAGE,
                     transfer_method=FileTransferMethod.TOOL_FILE,
