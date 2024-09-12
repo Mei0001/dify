@@ -71,28 +71,36 @@ class ParameterExtractorNode(LLMNode):
         Run the node.
         """
         node_data = cast(ParameterExtractorNodeData, self.node_data)
-        variable = self.graph_runtime_state.variable_pool.get_any(node_data.query)
-        if not variable:
-            raise ValueError("Input variable content not found or is empty")
-        query = variable
+        variable = self.graph_runtime_state.variable_pool.get(node_data.query)
+        query = variable.text if variable else None
 
-        inputs = {
-            "query": query,
-            "parameters": jsonable_encoder(node_data.parameters),
-            "instruction": jsonable_encoder(node_data.instruction),
-        }
+        files = (
+            self._fetch_files(
+                variable_pool=self.graph_runtime_state.variable_pool,
+                selector=node_data.vision.configs.variable_selector,
+            )
+            if node_data.vision.enabled
+            else []
+        )
 
         model_instance, model_config = self._fetch_model_config(node_data.model)
         if not isinstance(model_instance.model_type_instance, LargeLanguageModel):
             raise ValueError("Model is not a Large Language Model")
 
         llm_model = model_instance.model_type_instance
-        model_schema = llm_model.get_model_schema(model_config.model, model_config.credentials)
+        model_schema = llm_model.get_model_schema(
+            model=model_config.model,
+            credentials=model_config.credentials,
+        )
         if not model_schema:
             raise ValueError("Model schema not found")
 
         # fetch memory
-        memory = self._fetch_memory(node_data.memory, self.graph_runtime_state.variable_pool, model_instance)
+        memory = self._fetch_memory(
+            node_data_memory=node_data.memory,
+            variable_pool=self.graph_runtime_state.variable_pool,
+            model_instance=model_instance,
+        )
 
         if (
             set(model_schema.features or []) & {ModelFeature.TOOL_CALL, ModelFeature.MULTI_TOOL_CALL}
@@ -100,14 +108,39 @@ class ParameterExtractorNode(LLMNode):
         ):
             # use function call
             prompt_messages, prompt_message_tools = self._generate_function_call_prompt(
-                node_data, query, self.graph_runtime_state.variable_pool, model_config, memory
+                node_data=node_data,
+                query=query,
+                variable_pool=self.graph_runtime_state.variable_pool,
+                model_config=model_config,
+                memory=memory,
             )
         else:
             # use prompt engineering
             prompt_messages = self._generate_prompt_engineering_prompt(
-                node_data, query, self.graph_runtime_state.variable_pool, model_config, memory
+                data=node_data,
+                query=query,
+                variable_pool=self.graph_runtime_state.variable_pool,
+                model_config=model_config,
+                memory=memory,
+            )
+
+            prompt_messages, stop = self._fetch_prompt_messages(
+                system_query=query,
+                files=files,
+                memory=memory,
+                model_config=model_config,
+                vision_detail=node_data.vision.configs.detail,
+                prompt_template=prompt_template,
+                memory_config=node_data.memory,
             )
             prompt_message_tools = []
+
+        inputs = {
+            "query": query,
+            "files": [f.to_dict() for f in files],
+            "parameters": jsonable_encoder(node_data.parameters),
+            "instruction": jsonable_encoder(node_data.instruction),
+        }
 
         process_data = {
             "model_mode": model_config.mode,
@@ -151,12 +184,12 @@ class ParameterExtractorNode(LLMNode):
                 error = "Failed to extract result from function call or text response, using empty result."
 
         try:
-            result = self._validate_result(node_data, result)
+            result = self._validate_result(data=node_data, result=result or {})
         except Exception as e:
             error = str(e)
 
         # transform result into standard format
-        result = self._transform_result(node_data, result)
+        result = self._transform_result(data=node_data, result=result or {})
 
         return NodeRunResult(
             status=WorkflowNodeExecutionStatus.SUCCEEDED,
@@ -322,9 +355,11 @@ class ParameterExtractorNode(LLMNode):
         Generate completion prompt.
         """
         prompt_transform = AdvancedPromptTransform(with_variable_tmpl=True)
-        rest_token = self._calculate_rest_token(node_data, query, variable_pool, model_config, "")
+        rest_token = self._calculate_rest_token(
+            node_data=node_data, query=query, variable_pool=variable_pool, model_config=model_config, context=""
+        )
         prompt_template = self._get_prompt_engineering_prompt_template(
-            node_data, query, variable_pool, memory, rest_token
+            node_data=node_data, query=query, variable_pool=variable_pool, memory=memory, max_token_limit=rest_token
         )
         prompt_messages = prompt_transform.get_prompt(
             prompt_template=prompt_template,
@@ -351,15 +386,17 @@ class ParameterExtractorNode(LLMNode):
         Generate chat prompt.
         """
         prompt_transform = AdvancedPromptTransform(with_variable_tmpl=True)
-        rest_token = self._calculate_rest_token(node_data, query, variable_pool, model_config, "")
+        rest_token = self._calculate_rest_token(
+            node_data=node_data, query=query, variable_pool=variable_pool, model_config=model_config, context=""
+        )
         prompt_template = self._get_prompt_engineering_prompt_template(
-            node_data,
-            CHAT_GENERATE_JSON_USER_MESSAGE_TEMPLATE.format(
+            node_data=node_data,
+            query=CHAT_GENERATE_JSON_USER_MESSAGE_TEMPLATE.format(
                 structure=json.dumps(node_data.get_parameter_json_schema()), text=query
             ),
-            variable_pool,
-            memory,
-            rest_token,
+            variable_pool=variable_pool,
+            memory=memory,
+            max_token_limit=rest_token,
         )
 
         prompt_messages = prompt_transform.get_prompt(

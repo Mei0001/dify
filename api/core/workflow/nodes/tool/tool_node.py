@@ -3,7 +3,7 @@ from os import path
 from typing import Any, cast
 
 from core.callback_handler.workflow_tool_callback_handler import DifyWorkflowCallbackHandler
-from core.file.file_obj import File, FileTransferMethod, FileType
+from core.file.models import File, FileTransferMethod, FileType
 from core.tools.entities.tool_entities import ToolInvokeMessage, ToolParameter
 from core.tools.tool_engine import ToolEngine
 from core.tools.tool_manager import ToolManager

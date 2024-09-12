@@ -16,6 +16,7 @@ from core.app.entities.app_invoke_entities import (
 )
 from core.callback_handler.agent_tool_callback_handler import DifyAgentCallbackHandler
 from core.callback_handler.index_tool_callback_handler import DatasetIndexToolCallbackHandler
+from core.file import file_manager
 from core.memory.token_buffer_memory import TokenBufferMemory
 from core.model_manager import ModelInstance
 from core.model_runtime.entities import (
@@ -508,7 +509,7 @@ class BaseAgentRunner(AppRunner):
                 prompt_message_contents: list[PromptMessageContent] = []
                 prompt_message_contents.append(TextPromptMessageContent(data=message.query))
                 for file_obj in file_objs:
-                    prompt_message_contents.append(file_obj.prompt_message_content)
+                    prompt_message_contents.append(file_manager.to_prompt_message_content(file_obj))
 
                 return UserPromptMessage(content=prompt_message_contents)
         else:

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional
 
 from core.app.app_config.entities import PromptTemplateEntity
 from core.app.entities.app_invoke_entities import ModelConfigWithCredentialsEntity
+from core.file import file_manager
 from core.memory.token_buffer_memory import TokenBufferMemory
 from core.model_runtime.entities.message_entities import (
     PromptMessage,
@@ -19,7 +20,7 @@ from core.prompt.utils.prompt_template_parser import PromptTemplateParser
 from models.model import AppMode
 
 if TYPE_CHECKING:
-    from core.file.file_obj import File
+    from core.file.models import File
 
 
 class ModelMode(enum.Enum):
@@ -267,7 +268,7 @@ class SimplePromptTransform(PromptTransform):
             prompt_message_contents: list[PromptMessageContent] = []
             prompt_message_contents.append(TextPromptMessageContent(data=prompt))
             for file in files:
-                prompt_message_contents.append(file.prompt_message_content)
+                prompt_message_contents.append(file_manager.to_prompt_message_content(file))
 
             prompt_message = UserPromptMessage(content=prompt_message_contents)
         else:

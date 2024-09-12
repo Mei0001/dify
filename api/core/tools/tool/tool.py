@@ -22,7 +22,7 @@ from core.tools.entities.tool_entities import (
 from core.tools.tool_file_manager import ToolFileManager
 
 if TYPE_CHECKING:
-    from core.file.file_obj import File
+    from core.file.models import File
 
 
 class Tool(BaseModel, ABC):

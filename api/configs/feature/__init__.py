@@ -1,4 +1,4 @@
-from typing import Annotated, Optional
+from typing import Annotated, Literal, Optional
 
 from pydantic import AliasChoices, Field, HttpUrl, NegativeInt, NonNegativeInt, PositiveInt, computed_field
 from pydantic_settings import BaseSettings
@@ -11,12 +11,12 @@ class SecurityConfig(BaseSettings):
     Secret Key configs
     """
 
-    SECRET_KEY: Optional[str] = Field(
+    SECRET_KEY: str = Field(
         description="Your App secret key will be used for securely signing the session cookie"
         "Make sure you are changing this key for your deployment with a strong key."
         "You can generate a strong key using `openssl rand -base64 42`."
         "Alternatively you can set it with `SECRET_KEY` environment variable.",
-        default=None,
+        default="",
     )
 
     RESET_PASSWORD_TOKEN_EXPIRY_HOURS: PositiveInt = Field(
@@ -541,7 +541,7 @@ class IndexingConfig(BaseSettings):
 
 
 class ImageFormatConfig(BaseSettings):
-    MULTIMODAL_SEND_IMAGE_FORMAT: str = Field(
+    MULTIMODAL_SEND_IMAGE_FORMAT: Literal["base64", "url"] = Field(
         description="multi model send image format, support base64, url, default is base64",
         default="base64",
     )

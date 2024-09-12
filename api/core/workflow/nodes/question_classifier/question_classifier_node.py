@@ -86,7 +86,7 @@ class QuestionClassifierNode(LLMNode):
         )
         prompt_messages, stop = self._fetch_prompt_messages(
             prompt_template=prompt_template,
-            query=query,
+            system_query=query,
             memory=memory,
             model_config=model_config,
             files=files,

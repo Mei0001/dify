@@ -27,7 +27,7 @@ from core.app.entities.task_entities import (
     WorkflowStartStreamResponse,
     WorkflowTaskState,
 )
-from core.file.file_obj import File
+from core.file.models import File
 from core.model_runtime.utils.encoders import jsonable_encoder
 from core.ops.entities.trace_entity import TraceTaskName
 from core.ops.ops_trace_manager import TraceQueueManager, TraceTask

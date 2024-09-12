@@ -44,7 +44,7 @@ class Storage:
             raise ValueError("storage runner is not initialized")
         self.storage_runner.save(filename, data)
 
-    def load(self, filename: str, stream: bool = False) -> Union[bytes, Generator]:
+    def load(self, filename: str, /, *, stream: bool = False) -> Union[bytes, Generator]:
         if stream:
             return self.load_stream(filename)
         else:

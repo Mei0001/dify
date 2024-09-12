@@ -1,6 +1,7 @@
 from typing import Optional
 
 from core.app.app_config.features.file_upload.manager import FileUploadConfigManager
+from core.file import file_manager
 from core.model_manager import ModelInstance
 from core.model_runtime.entities import (
     AssistantPromptMessage,
@@ -78,7 +79,7 @@ class TokenBufferMemory:
                     prompt_message_contents: list[PromptMessageContent] = []
                     prompt_message_contents.append(TextPromptMessageContent(data=message.query))
                     for file_obj in file_objs:
-                        prompt_message_contents.append(file_obj.prompt_message_content)
+                        prompt_message_contents.append(file_manager.to_prompt_message_content(file_obj))
 
                     prompt_messages.append(UserPromptMessage(content=prompt_message_contents))
             else:

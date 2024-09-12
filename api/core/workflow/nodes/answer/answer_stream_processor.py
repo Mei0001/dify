@@ -2,7 +2,7 @@ import logging
 from collections.abc import Generator
 from typing import Optional, cast
 
-from core.file.file_obj import File
+from core.file.models import File
 from core.workflow.entities.variable_pool import VariablePool
 from core.workflow.graph_engine.entities.event import (
     GraphEngineEvent,

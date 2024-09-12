@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Any, Optional
 
-from core.file.file_obj import File
+from core.file.models import File
 from core.workflow.entities.variable_pool import VariablePool
 from core.workflow.utils.condition.entities import Condition
 from core.workflow.utils.variable_template_parser import VariableTemplateParser

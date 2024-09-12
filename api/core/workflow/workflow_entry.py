@@ -8,7 +8,7 @@ from configs import dify_config
 from core.app.app_config.entities import FileExtraConfig
 from core.app.apps.base_app_queue_manager import GenerateTaskStoppedError
 from core.app.entities.app_invoke_entities import InvokeFrom
-from core.file.file_obj import File, FileTransferMethod, FileType, ImageConfig
+from core.file.models import File, FileTransferMethod, FileType, ImageConfig
 from core.workflow.callbacks import WorkflowCallback
 from core.workflow.entities.base_node_data_entities import BaseNodeData
 from core.workflow.entities.variable_pool import VariablePool

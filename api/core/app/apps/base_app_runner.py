@@ -27,7 +27,7 @@ from core.prompt.simple_prompt_transform import ModelMode, SimplePromptTransform
 from models.model import App, AppMode, Message, MessageAnnotation
 
 if TYPE_CHECKING:
-    from core.file.file_obj import File
+    from core.file.models import File
 
 
 class AppRunner:

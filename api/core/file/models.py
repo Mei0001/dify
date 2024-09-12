@@ -1,42 +1,13 @@
-from collections.abc import Sequence
-from enum import Enum
+from collections.abc import Mapping, Sequence
 from typing import Optional
 
 from pydantic import BaseModel, Field, model_validator
 
 from core.model_runtime.entities.message_entities import ImagePromptMessageContent
-from extensions.ext_database import db
 
+from . import helpers
+from .enums import FileTransferMethod, FileType
 from .tool_file_parser import ToolFileParser
-from .upload_file_parser import UploadFileParser
-
-
-class FileTransferMethod(str, Enum):
-    REMOTE_URL = "remote_url"
-    LOCAL_FILE = "local_file"
-    TOOL_FILE = "tool_file"
-
-    @staticmethod
-    def value_of(value):
-        for member in FileTransferMethod:
-            if member.value == value:
-                return member
-        raise ValueError(f"No matching enum found for value '{value}'")
-
-
-class FileType(str, Enum):
-    IMAGE = "image"
-    DOCUMENT = "document"
-    AUDIO = "audio"
-    VIDEO = "video"
-    CUSTOM = "custom"
-
-    @staticmethod
-    def value_of(value):
-        for member in FileType:
-            if member.value == value:
-                return member
-        raise ValueError(f"No matching enum found for value '{value}'")
 
 
 class ImageConfig(BaseModel):
@@ -61,18 +32,6 @@ class FileExtraConfig(BaseModel):
     number_limits: int = 0
 
 
-class FileBelongsTo(str, Enum):
-    USER = "user"
-    ASSISTANT = "assistant"
-
-    @staticmethod
-    def value_of(value):
-        for member in FileBelongsTo:
-            if member.value == value:
-                return member
-        raise ValueError(f"No matching enum found for value '{value}'")
-
-
 class File(BaseModel):
     id: Optional[str] = None  # message file id
     tenant_id: str
@@ -85,7 +44,7 @@ class File(BaseModel):
     extension: Optional[str] = None
     mime_type: Optional[str] = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Mapping[str, str | None]:
         return {
             "__variant": self.__class__.__name__,
             "tenant_id": self.tenant_id,
@@ -110,52 +69,15 @@ class File(BaseModel):
         return text
 
     @property
-    def data(self) -> Optional[str]:
-        """
-        Get image data, file signed url or base64 data
-        depending on config MULTIMODAL_SEND_IMAGE_FORMAT
-        """
-        return self._preview_url()
-
-    @property
     def preview_url(self) -> Optional[str]:
-        return self._preview_url(force_url=True)
-
-    @property
-    def prompt_message_content(self):
-        if self.type == FileType.IMAGE:
-            if self.extra_config is None:
-                raise ValueError("Missing file extra config")
-
-            image_config = self.extra_config.image_config
-
-            if self.data is None:
-                raise ValueError("Missing file data")
-
-            return ImagePromptMessageContent(
-                data=self.data,
-                detail=image_config.detail
-                if image_config and image_config.detail
-                else ImagePromptMessageContent.DETAIL.LOW,
-            )
-        raise ValueError("Only image file can convert to prompt message content")
-
-    def _preview_url(self, force_url: bool = False) -> str | None:
         if self.type == FileType.IMAGE:
             if self.transfer_method == FileTransferMethod.REMOTE_URL:
                 return self.url
             elif self.transfer_method == FileTransferMethod.LOCAL_FILE:
-                from models import UploadFile
-
-                upload_file = (
-                    db.session.query(UploadFile)
-                    .filter(UploadFile.id == self.related_id, UploadFile.tenant_id == self.tenant_id)
-                    .first()
-                )
-
-                return UploadFileParser.get_image_data(upload_file=upload_file, force_url=force_url)
+                if self.related_id is None:
+                    raise ValueError("Missing file related_id")
+                return helpers.get_signed_image_url(upload_file_id=self.related_id)
             elif self.transfer_method == FileTransferMethod.TOOL_FILE:
-                # add sign url
                 assert self.related_id is not None
                 assert self.extension is not None
                 return ToolFileParser.get_tool_file_manager().sign_file(

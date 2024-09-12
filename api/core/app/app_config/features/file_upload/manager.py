@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from typing import Any
 
-from core.file.file_obj import FileExtraConfig
+from core.file.models import FileExtraConfig
 
 
 class FileUploadConfigManager:

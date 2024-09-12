@@ -3,7 +3,7 @@ import logging
 from copy import deepcopy
 from typing import Any, Optional, Union
 
-from core.file.file_obj import File, FileTransferMethod
+from core.file.models import File, FileTransferMethod
 from core.tools.entities.tool_entities import ToolInvokeMessage, ToolParameter, ToolProviderType
 from core.tools.tool.tool import Tool
 from extensions.ext_database import db

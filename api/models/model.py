@@ -11,8 +11,8 @@ from sqlalchemy import Float, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from configs import dify_config
+from core.file import helpers as file_helpers
 from core.file.tool_file_parser import ToolFileParser
-from core.file.upload_file_parser import UploadFileParser
 from extensions.ext_database import db
 from libs.helper import generate_string
 
@@ -784,7 +784,7 @@ class Message(db.Model):
                 if not upload_file_id:
                     continue
 
-                sign_url = UploadFileParser.get_signed_temp_image_url(upload_file_id)
+                sign_url = file_helpers.get_signed_image_url(upload_file_id)
 
             re_sign_file_url_answer = re_sign_file_url_answer.replace(url, sign_url)
 
@@ -881,11 +881,7 @@ class Message(db.Model):
             url = message_file.url
             if message_file.type == "image":
                 if message_file.transfer_method == "local_file":
-                    upload_file = (
-                        db.session.query(UploadFile).filter(UploadFile.id == message_file.upload_file_id).first()
-                    )
-
-                    url = UploadFileParser.get_image_data(upload_file=upload_file, force_url=True)
+                    url = file_helpers.get_signed_image_url(message_file.upload_file_id)
                 if message_file.transfer_method == "tool_file":
                     # get tool file id
                     tool_file_id = message_file.url.split("/")[-1]

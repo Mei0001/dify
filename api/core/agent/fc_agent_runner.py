@@ -7,6 +7,7 @@ from typing import Any, Union
 from core.agent.base_agent_runner import BaseAgentRunner
 from core.app.apps.base_app_queue_manager import PublishFrom
 from core.app.entities.queue_entities import QueueAgentThoughtEvent, QueueMessageEndEvent, QueueMessageFileEvent
+from core.file import file_manager
 from core.model_runtime.entities import (
     AssistantPromptMessage,
     LLMResult,
@@ -397,7 +398,7 @@ class FunctionCallAgentRunner(BaseAgentRunner):
             prompt_message_contents: list[PromptMessageContent] = []
             prompt_message_contents.append(TextPromptMessageContent(data=query))
             for file_obj in self.files:
-                prompt_message_contents.append(file_obj.prompt_message_content)
+                prompt_message_contents.append(file_manager.to_prompt_message_content(file_obj))
 
             prompt_messages.append(UserPromptMessage(content=prompt_message_contents))
         else:

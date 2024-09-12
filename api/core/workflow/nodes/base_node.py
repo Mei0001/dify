@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Mapping, Sequence
 from typing import Any, Optional
@@ -10,6 +11,9 @@ from core.workflow.graph_engine.entities.graph_init_params import GraphInitParam
 from core.workflow.graph_engine.entities.graph_runtime_state import GraphRuntimeState
 from core.workflow.nodes.event import RunCompletedEvent, RunEvent
 from enums import NodeType
+from models.workflow import WorkflowNodeExecutionStatus
+
+logger = logging.getLogger(__name__)
 
 
 class BaseNode(ABC):
@@ -57,11 +61,14 @@ class BaseNode(ABC):
         raise NotImplementedError
 
     def run(self) -> Generator[RunEvent | InNodeEvent, None, None]:
-        """
-        Run node entry
-        :return:
-        """
-        result = self._run()
+        try:
+            result = self._run()
+        except Exception as e:
+            logger.error(f"Node {self.node_id} failed to run: {e}")
+            result = NodeRunResult(
+                status=WorkflowNodeExecutionStatus.FAILED,
+                error=str(e),
+            )
 
         if isinstance(result, NodeRunResult):
             yield RunCompletedEvent(run_result=result)

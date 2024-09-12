@@ -8,10 +8,11 @@ from typing_extensions import deprecated
 
 from core.file import File
 from core.variables import Segment, SegmentGroup, Variable
-from core.workflow.enums import SystemVariableKey
+from core.variables.segments import FileSegment
 from factories import variable_factory
 
 from ..constants import CONVERSATION_VARIABLE_NODE_ID, ENVIRONMENT_VARIABLE_NODE_ID, SYSTEM_VARIABLE_NODE_ID
+from ..enums import SystemVariableKey
 
 VariableValue = Union[str, int, float, dict, list, File]
 
@@ -25,33 +26,52 @@ class VariablePool(BaseModel):
     # Other elements of the selector are the keys in the second-level dictionary. To get the key, we hash the
     # elements of the selector except the first one.
     variable_dictionary: dict[str, dict[int, Segment]] = Field(
-        description="Variables mapping", default=defaultdict(dict)
+        description="Variables mapping",
+        default=defaultdict(dict),
     )
-
     # TODO: This user inputs is not used for pool.
     user_inputs: Mapping[str, Any] = Field(
         description="User inputs",
     )
-
     system_variables: Mapping[SystemVariableKey, Any] = Field(
         description="System variables",
     )
+    environment_variables: Sequence[Variable] = Field(
+        description="Environment variables.",
+        default_factory=list,
+    )
+    conversation_variables: Sequence[Variable] = Field(
+        description="Conversation variables.",
+        default_factory=list,
+    )
 
-    environment_variables: Sequence[Variable] = Field(description="Environment variables.", default_factory=list)
+    def __init__(
+        self,
+        *,
+        system_variables: Mapping[SystemVariableKey, Any],
+        user_inputs: Mapping[str, Any],
+        environment_variables: Sequence[Variable] | None = None,
+        conversation_variables: Sequence[Variable] | None = None,
+        **kwargs,
+    ):
+        environment_variables = environment_variables or []
+        conversation_variables = conversation_variables or []
 
-    conversation_variables: Sequence[Variable] | None = None
+        super().__init__(
+            system_variables=system_variables,
+            user_inputs=user_inputs,
+            environment_variables=environment_variables,
+            conversation_variables=conversation_variables,
+            **kwargs,
+        )
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
         for key, value in self.system_variables.items():
             self.add((SYSTEM_VARIABLE_NODE_ID, key.value), value)
-
         # Add environment variables to the variable pool
-        for var in self.environment_variables or []:
+        for var in self.environment_variables:
             self.add((ENVIRONMENT_VARIABLE_NODE_ID, var.name), var)
-
         # Add conversation variables to the variable pool
-        for var in self.conversation_variables or []:
+        for var in self.conversation_variables:
             self.add((CONVERSATION_VARIABLE_NODE_ID, var.name), var)
 
     def add(self, selector: Sequence[str], value: Any, /) -> None:
@@ -144,11 +164,17 @@ class VariablePool(BaseModel):
         self.variable_dictionary[selector[0]].pop(hash_key, None)
 
     def convert_template(self, template: str, /):
-        parts = re.split(VARIABLE_PATTERN, template)
+        parts = VARIABLE_PATTERN.split(template)
         segments = []
         for part in filter(lambda x: x, parts):
-            if "." in part and (value := self.get(part.split("."))):
-                segments.append(value)
+            if "." in part and (variable := self.get(part.split("."))):
+                segments.append(variable)
             else:
                 segments.append(variable_factory.build_segment(part))
         return SegmentGroup(value=segments)
+
+    def get_file(self, selector: Sequence[str], /) -> FileSegment | None:
+        segment = self.get(selector)
+        if isinstance(segment, FileSegment):
+            return segment
+        return None

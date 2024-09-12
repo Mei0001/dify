@@ -20,6 +20,7 @@ from .variables import (
     ArrayNumberVariable,
     ArrayObjectVariable,
     ArrayStringVariable,
+    FileVariable,
     FloatVariable,
     IntegerVariable,
     NoneVariable,
@@ -56,4 +57,5 @@ __all__ = [
     "ArrayObjectSegment",
     "ArrayStringSegment",
     "FileSegment",
+    "FileVariable",
 ]

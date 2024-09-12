@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict
 
 from core.app.app_config.entities import AppConfig, EasyUIBasedAppConfig, WorkflowUIBasedAppConfig
 from core.entities.provider_configuration import ProviderModelBundle
-from core.file.file_obj import File
+from core.file.models import File
 from core.model_runtime.entities.model_entities import AIModelEntity
 from core.ops.ops_trace_manager import TraceQueueManager
 

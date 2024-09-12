@@ -23,7 +23,7 @@ from core.model_runtime.utils.encoders import jsonable_encoder
 from core.prompt.advanced_prompt_transform import AdvancedPromptTransform
 from core.prompt.entities.advanced_prompt_entities import CompletionModelPromptTemplate, MemoryConfig
 from core.prompt.utils.prompt_message_util import PromptMessageUtil
-from core.variables import ArrayFileSegment, FileSegment
+from core.variables import ArrayAnySegment, ArrayFileSegment, FileSegment
 from core.workflow.constants import SYSTEM_VARIABLE_NODE_ID
 from core.workflow.entities.node_entities import NodeRunMetadataKey, NodeRunResult
 from core.workflow.entities.variable_pool import VariablePool
@@ -45,7 +45,7 @@ from models.provider import Provider, ProviderType
 from models.workflow import WorkflowNodeExecutionStatus
 
 if TYPE_CHECKING:
-    from core.file.file_obj import File
+    from core.file.models import File
 
 
 class ModelInvokeCompleted(BaseModel):
@@ -74,10 +74,10 @@ class LLMNode(BaseNode):
             node_data.prompt_template = self._transform_chat_messages(node_data.prompt_template)
 
             # fetch variables and fetch values from variable pool
-            inputs = self._fetch_inputs(node_data, variable_pool)
+            inputs = self._fetch_inputs(node_data=node_data, variable_pool=variable_pool)
 
             # fetch jinja2 inputs
-            jinja_inputs = self._fetch_jinja_inputs(node_data, variable_pool)
+            jinja_inputs = self._fetch_jinja_inputs(node_data=node_data, variable_pool=variable_pool)
 
             # merge inputs
             inputs.update(jinja_inputs)
@@ -85,18 +85,17 @@ class LLMNode(BaseNode):
             node_inputs = {}
 
             # fetch files
-            if node_data.vision.enabled:
-                files = self._fetch_files(
-                    variable_pool=variable_pool, selector=node_data.vision.configs.variable_selector
-                )
-            else:
-                files = []
+            files = (
+                self._fetch_files(variable_pool=variable_pool, selector=node_data.vision.configs.variable_selector)
+                if node_data.vision.enabled
+                else []
+            )
 
             if files:
                 node_inputs["#files#"] = [file.to_dict() for file in files]
 
             # fetch context value
-            generator = self._fetch_context(node_data, variable_pool)
+            generator = self._fetch_context(node_data=node_data, variable_pool=variable_pool)
             context = None
             for event in generator:
                 if isinstance(event, RunRetrieverResourceEvent):
@@ -124,8 +123,7 @@ class LLMNode(BaseNode):
                 query = None
 
             prompt_messages, stop = self._fetch_prompt_messages(
-                query=query,
-                query_prompt_template=node_data.memory.query_prompt_template if node_data.memory else None,
+                system_query=query,
                 inputs=inputs,
                 files=files,
                 context=context,
@@ -364,7 +362,7 @@ class LLMNode(BaseNode):
             return variable.value
         # FIXME: Temporary fix for empty array,
         # all variables added to variable pool should be a Segment instance.
-        if isinstance(variable, ArrayFileSegment) and len(variable.value) == 0:
+        if isinstance(variable, ArrayAnySegment) and len(variable.value) == 0:
             return []
         raise ValueError(f"Invalid variable type: {type(variable)}")
 
@@ -517,8 +515,7 @@ class LLMNode(BaseNode):
     def _fetch_prompt_messages(
         self,
         *,
-        query: str | None = None,
-        query_prompt_template: str | None = None,
+        system_query: str | None = None,
         inputs: dict[str, str] | None = None,
         files: Sequence["File"],
         context: str | None = None,
@@ -534,13 +531,12 @@ class LLMNode(BaseNode):
         prompt_messages = prompt_transform.get_prompt(
             prompt_template=prompt_template,
             inputs=inputs,
-            query=query or "",
+            query=system_query or "",
             files=files,
             context=context,
             memory_config=memory_config,
             memory=memory,
             model_config=model_config,
-            query_prompt_template=query_prompt_template,
         )
         stop = model_config.stop
         filtered_prompt_messages = []
