@@ -54,7 +54,6 @@ class HttpRequestNode(BaseNode):
     def _run(self) -> NodeRunResult:
         node_data: HttpRequestNodeData = cast(HttpRequestNodeData, self.node_data)
 
-        # init http executor
         process_data = {}
         try:
             http_executor = HttpExecutor(
@@ -64,7 +63,6 @@ class HttpRequestNode(BaseNode):
             )
             process_data["request"] = http_executor.to_log()
 
-            # invoke http executor
             response = http_executor.invoke()
             files = self.extract_files(url=http_executor.url, response=response)
             return NodeRunResult(
