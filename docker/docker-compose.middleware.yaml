@@ -1,4 +1,10 @@
 services:
+  my_dify:
+    environment:
+      - CERTBOT_EMAIL=dummy@example.com
+      - CERTBOT_DOMAIN=dummy.com
+
+
   # The postgres database.
   db:
     image: postgres:15-alpine
